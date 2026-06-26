@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>似顔絵 順番待ち</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&family=Noto+Sans+JP:wght@400;700&display=swap');
+  :root {
+    --cream:#FFF8F0;--peach:#FFCBA4;--coral:#FF7B5C;--deep:#3B2A1A;
+    --ink:#5A3E2B;--light:#FFF0E8;--gold:#E8A020;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Noto Sans JP',sans-serif;background:var(--cream);color:var(--deep);min-height:100vh;}
+
+  /* HEADER */
+  header{background:var(--coral);padding:14px 16px 12px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 3px 0 #c45c3e;}
+  .header-left{display:flex;align-items:center;gap:10px;}
+  header .emoji{font-size:1.8rem;}
+  header h1{font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:1.3rem;color:#fff;}
+  header .subtitle{font-size:0.72rem;color:rgba(255,255,255,0.85);margin-top:1px;}
+  .mode-toggle{background:rgba(0,0,0,0.2);border:none;border-radius:20px;padding:7px 14px;color:#fff;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:0.78rem;cursor:pointer;transition:background 0.2s;white-space:nowrap;}
+  .mode-toggle:hover{background:rgba(0,0,0,0.35);}
+  body.admin-mode .mode-toggle{background:#e94560;}
+
+  /* ADMIN BANNER */
+  .admin-banner{display:none;background:#1a1a2e;color:#fff;text-align:center;padding:6px;font-family:'Zen Maru Gothic',sans-serif;font-size:0.78rem;letter-spacing:0.08em;}
+  .admin-banner span{color:#e94560;font-weight:900;}
+  body.admin-mode .admin-banner{display:block;}
+
+  /* SAVING INDICATOR */
+  .save-indicator{position:fixed;bottom:16px;right:16px;background:var(--deep);color:#fff;border-radius:20px;padding:6px 14px;font-family:'Zen Maru Gothic',sans-serif;font-size:0.75rem;font-weight:700;opacity:0;transition:opacity 0.3s;z-index:999;pointer-events:none;}
+  .save-indicator.show{opacity:1;}
+
+  /* STATUS */
+  .status-bar{background:var(--deep);color:#fff;display:flex;justify-content:space-around;padding:10px 16px;gap:8px;}
+  .stat{display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .stat-num{font-family:'Zen Maru Gothic',sans-serif;font-size:1.5rem;font-weight:900;line-height:1;}
+  .stat-label{font-size:0.7rem;opacity:0.75;}
+  .status-bar .divider{width:1px;background:rgba(255,255,255,0.2);}
+
+  .main{max-width:540px;margin:0 auto;padding:16px 14px 80px;}
+
+  /* PUNCTUAL BOX */
+  .punctual-box{background:linear-gradient(135deg,#fff0f5,#ffe8f0);border:2px solid #ffb3cc;border-radius:14px;padding:13px 16px;margin-bottom:12px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:0.92rem;color:#c0004a;line-height:1.7;}
+  .punctual-box strong{font-size:1.05rem;}
+  .punctual-box span{font-size:0.78rem;color:#a0005a;font-weight:400;font-family:'Noto Sans JP',sans-serif;}
+
+  /* NOTICE BOX */
+  .notice-box{background:#fff8e1;border:2px solid #ffd54f;border-radius:14px;padding:13px 15px;margin-bottom:16px;}
+  .notice-box .notice-title{font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:0.95rem;color:#b8860b;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+  .notice-box p{font-size:0.82rem;color:#7a5f00;line-height:1.65;}
+  .notice-box strong{font-weight:700;}
+
+  /* PRICE TABLE */
+  .price-table{background:#fff;border:2px solid var(--peach);border-radius:14px;padding:12px 14px;margin-bottom:16px;}
+  .price-table h3{font-family:'Zen Maru Gothic',sans-serif;font-size:0.88rem;font-weight:700;color:var(--coral);margin-bottom:8px;}
+  .price-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+  .price-cell{background:var(--light);border-radius:8px;padding:6px 4px;text-align:center;}
+  .price-cell .pc-num{font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:0.95rem;color:var(--coral);}
+  .price-cell .pc-price{font-size:0.7rem;color:var(--ink);margin-top:2px;}
+
+  /* ADD FORM */
+  .add-form{background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(58,42,26,0.1);margin-bottom:20px;border:2px solid var(--peach);}
+  .add-form h2{font-family:'Zen Maru Gothic',sans-serif;font-size:0.95rem;font-weight:700;color:var(--coral);margin-bottom:14px;}
+
+  .form-section{margin-bottom:14px;}
+  .form-label{font-family:'Zen Maru Gothic',sans-serif;font-size:0.8rem;font-weight:700;color:var(--ink);opacity:0.8;margin-bottom:6px;}
+
+  /* name input */
+  .name-input{width:100%;padding:10px 14px;border:2px solid var(--peach);border-radius:10px;font-size:1rem;font-family:'Noto Sans JP',sans-serif;color:var(--deep);background:var(--cream);outline:none;transition:border-color 0.2s;}
+  .name-input:focus{border-color:var(--coral);background:#fff;}
+
+  /* time slots */
+  .time-select-wrap{display:flex;flex-wrap:wrap;gap:6px;}
+  .time-slot{padding:6px 12px;border:2px solid var(--peach);border-radius:20px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:0.82rem;cursor:pointer;background:var(--cream);color:var(--ink);transition:all 0.15s;user-select:none;}
+  .time-slot:hover{border-color:var(--coral);color:var(--coral);}
+  .time-slot.selected{background:var(--coral);border-color:var(--coral);color:#fff;}
+  .time-slot.taken{background:#eee;border-color:#ddd;color:#bbb;cursor:not-allowed;text-decoration:line-through;}
+  .time-slot.double-taken{background:#ffd6cc;border-color:#ffb3a0;color:#cc6655;cursor:not-allowed;}
+
+  /* people count */
+  .count-btns{display:flex;gap:8px;}
+  .count-btn{flex:1;padding:10px;border:2px solid var(--peach);border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:0.9rem;cursor:pointer;background:var(--cream);color:var(--ink);transition:all 0.15s;text-align:center;}
+  .count-btn:hover{border-color:var(--coral);}
+  .count-btn.selected{background:var(--coral);border-color:var(--coral);color:#fff;}
+  .count-btn .cb-price{font-size:0.72rem;display:block;margin-top:2px;opacity:0.85;}
+
+  /* delivery options */
+  .delivery-opts{display:flex;flex-direction:column;gap:8px;}
+  .delivery-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border:2px solid #eee;border-radius:10px;cursor:pointer;background:#fafafa;transition:border-color 0.15s;}
+  .delivery-row.selected{border-color:var(--coral);background:var(--light);}
+  .delivery-row input[type=checkbox]{accent-color:var(--coral);width:16px;height:16px;flex-shrink:0;cursor:pointer;}
+  .delivery-row .dr-label{font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:0.88rem;color:var(--deep);flex:1;}
+  .delivery-row .dr-price{font-size:0.75rem;color:var(--coral);font-weight:700;white-space:nowrap;}
+  .qty-control{display:flex;align-items:center;gap:6px;margin-left:4px;}
+  .qty-btn{width:26px;height:26px;border:2px solid var(--peach);border-radius:6px;background:#fff;font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;color:var(--coral);font-family:'Zen Maru Gothic',sans-serif;}
+  .qty-btn:hover{background:var(--light);}
+  .qty-num{font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:0.95rem;min-width:18px;text-align:center;}
+
+  /* photo permission */
+  .radio-btns{display:flex;gap:8px;}
+  .radio-btn{flex:1;padding:9px;border:2px solid #eee;border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:0.88rem;cursor:pointer;background:#fafafa;color:var(--ink);text-align:center;transition:all 0.15s;}
+  .radio-btn:hover{border-color:var(--coral);}
+  .radio-btn.selected-ok{background:#e8f5e9;border-color:#66bb6a;color:#2e7d32;}
+  .radio-btn.selected-ng{background:#fce4ec;border-color:#ef9a9a;color:#c62828;}
+
+  /* total */
+  .total-box{background:linear-gradient(135deg,var(--coral),#ff9a7c);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;margin-top:4px;}
+  .total-label{font-family:'Zen Maru Gothic',sans-serif;font-weight:700;color:#fff;font-size:0.9rem;}
+  .total-amount{font-family:'Zen Maru Gothic',sans-serif;font-weight:900;color:#fff;font-size:1.6rem;}
+  .total-amount span{font-size:0.9rem;margin-left:2px;}
+
+  .add-btn{width:100%;margin-top:12px;background:var(--deep);color:#fff;border:none;border-radius:12px;padding:13px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;transition:background 0.15s,transform 0.1s;}
+  .add-btn:hover{background:#5A3E2B;}
+  .add-btn:active{transform:scale(0.98);}
+
+  /* ADMIN SETTINGS */
+  .admin-only{display:none;}
+  body.admin-mode .admin-only{display:block;}
+  .settings-panel{background:#fff;border-radius:14px;padding:12px 14px;border:2px solid #e8e0d8;margin-bottom:14px;}
+  .settings-panel h2{font-family:'Zen Maru Gothic',sans-serif;font-size:0.85rem;font-weight:700;color:var(--ink);margin-bottom:8px;opacity:0.75;}
+  .settings-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .setting-item{display:flex;align-items:center;gap:6px;font-size:0.85rem;}
+  .setting-item label{font-family:'Zen Maru Gothic',sans-serif;font-weight:700;white-space:nowrap;}
+  .setting-item input[type=number]{padding:5px 8px;border:2px solid var(--peach);border-radius:8px;font-size:0.9rem;color:var(--deep);background:var(--cream);outline:none;width:60px;}
+
+  /* NOW SERVING */
+  .now-serving{background:linear-gradient(135deg,var(--gold),#f5b830);border-radius:16px;padding:16px 18px;margin-bottom:20px;box-shadow:0 3px 12px rgba(232,160,32,0.35);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+  .now-serving.empty{background:#f0f0f0;box-shadow:none;}
+  .ns-label{font-family:'Zen Maru Gothic',sans-serif;font-size:0.78rem;font-weight:700;color:#7a5500;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;}
+  .now-serving.empty .ns-label{color:#aaa;}
+  .ns-name{font-family:'Zen Maru Gothic',sans-serif;font-size:1.5rem;font-weight:900;color:var(--deep);line-height:1.1;}
+  .ns-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
+  .ns-tag{border-radius:6px;padding:2px 8px;font-size:0.72rem;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;}
+  .tag-time{background:rgba(255,255,255,0.45);color:#7a5500;}
+  .tag-people{background:rgba(0,0,0,0.12);color:#5a3e00;}
+  .tag-price{background:#fff;color:var(--coral);}
+  .tag-photo-ok{background:#e8f5e9;color:#2e7d32;}
+  .tag-photo-ng{background:#fce4ec;color:#c62828;}
+  .done-btn{background:var(--deep);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:0.88rem;cursor:pointer;flex-shrink:0;line-height:1.5;text-align:center;}
+  .done-btn:hover{background:#5A3E2B;}
+
+  /* QUEUE */
+  .section-title{font-family:'Zen Maru Gothic',sans-serif;font-size:0.88rem;font-weight:700;color:var(--ink);margin-bottom:10px;opacity:0.75;}
+  .queue-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+  .queue-item{background:#fff;border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;box-shadow:0 1px 6px rgba(58,42,26,0.08);border:2px solid transparent;animation:slideIn 0.2s ease;}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+  .queue-item.is-next{border-color:var(--coral);background:var(--light);}
+  .q-num{font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:1.2rem;color:var(--coral);min-width:32px;text-align:center;padding-top:2px;}
+  .q-info{flex:1;}
+  .q-name{font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:1rem;color:var(--deep);}
+  .q-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+  .q-tag{border-radius:5px;padding:1px 7px;font-size:0.68rem;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;}
+  .qt-time{background:#fff3e0;color:#b86000;}
+  .qt-people{background:#f3e5f5;color:#6a1b9a;}
+  .qt-price{background:#fce4ec;color:#c62828;}
+  .qt-delivery{background:#e8f5e9;color:#2e7d32;}
+  .qt-photo{background:#e3f2fd;color:#1565c0;}
+  .next-badge{background:var(--coral);color:#fff;font-size:0.62rem;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;border-radius:5px;padding:2px 6px;flex-shrink:0;margin-top:3px;}
+  .delete-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:1rem;padding:4px;border-radius:6px;transition:color 0.15s;display:none;flex-shrink:0;}
+  body.admin-mode .delete-btn{display:block;}
+  .delete-btn:hover{color:#e05;background:#fff0f0;}
+
+  /* DONE */
+  .done-list{display:flex;flex-direction:column;gap:6px;}
+  .done-item{background:rgba(109,191,103,0.1);border-radius:10px;padding:9px 14px;display:flex;align-items:flex-start;gap:10px;color:#4a7a47;}
+  .done-num{font-family:'Zen Maru Gothic',sans-serif;font-weight:700;min-width:28px;text-align:center;opacity:0.6;padding-top:2px;}
+  .done-info{flex:1;}
+  .done-name{font-weight:700;font-family:'Zen Maru Gothic',sans-serif;text-decoration:line-through;opacity:0.7;}
+  .done-sub{font-size:0.68rem;opacity:0.55;margin-top:2px;}
+
+  .empty-msg{text-align:center;color:#ccc;font-size:0.88rem;padding:18px 0;}
+  .reset-btn{display:none;margin:20px auto 0;background:none;border:2px solid #ffaaaa;color:#c05;border-radius:10px;padding:8px 20px;font-family:'Zen Maru Gothic',sans-serif;font-size:0.85rem;cursor:pointer;opacity:0.7;}
+  body.admin-mode .reset-btn{display:block;}
+  .reset-btn:hover{opacity:1;}
+
+  /* LOADING */
+  .loading-overlay{position:fixed;inset:0;background:var(--cream);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px;}
+  .loading-spinner{width:36px;height:36px;border:4px solid var(--peach);border-top-color:var(--coral);border-radius:50%;animation:spin 0.7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{font-family:'Zen Maru Gothic',sans-serif;font-weight:700;color:var(--ink);font-size:0.9rem;}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">読み込み中…</div>
+</div>
+
+<div class="save-indicator" id="save-indicator">💾 保存しました</div>
+
+<header>
+  <div class="header-left">
+    <div class="emoji">🎨</div>
+    <div>
+      <h1>似顔絵 順番待ち</h1>
+      <div class="subtitle">時間を選んで登録してください</div>
+    </div>
+  </div>
+  <button class="mode-toggle" onclick="toggleMode()">⚙️ 管理者モード</button>
+</header>
+<div class="admin-banner">🔒 <span>管理者モード</span> — スタッフ専用操作が有効です</div>
+
+<div class="status-bar">
+  <div class="stat"><div class="stat-num" id="stat-waiting">0</div><div class="stat-label">待ち人数</div></div>
+  <div class="divider"></div>
+  <div class="stat"><div class="stat-num" id="stat-done">0</div><div class="stat-label">完成人数</div></div>
+  <div class="divider"></div>
+  <div class="stat"><div class="stat-num" id="stat-total">0</div><div class="stat-label">合計</div></div>
+</div>
+
+<div class="main">
+
+  <!-- PUNCTUAL NOTICE -->
+  <div class="punctual-box">
+    🕐 ご予約時間の <strong>5分前</strong> にはお越しください<br>
+    <span>遅れますと、お描きする時間が短くなってしまいます。どうぞよろしくお願いいたします🙏</span>
+  </div>
+
+  <!-- NOTICE -->
+  <div class="notice-box">
+    <div class="notice-title">⚠️ ご予約の前にお読みください</div>
+    <p>
+      ※ <strong>1枠2人まで</strong>の時間です。<br>
+      2人を超える場合は<strong>自動で連続2枠</strong>でお取りします。
+    </p>
+  </div>
+
+  <!-- ADMIN SETTINGS -->
+  <div class="admin-only">
+    <div class="settings-panel">
+      <h2>⚙️ スロット設定</h2>
+      <div class="settings-row">
+        <div class="setting-item">
+          <label>1人あたり</label>
+          <input type="number" id="interval" value="20" min="5" max="60" oninput="buildSlots();render()">
+          <span style="font-size:0.85rem;">分</span>
+        </div>
+        <div style="font-size:0.75rem;color:#aaa;">12:00〜15:40 で自動生成</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD FORM -->
+  <div class="add-form">
+    <h2>✏️ 予約登録</h2>
+
+    <!-- name -->
+    <div class="form-section">
+      <div class="form-label">お名前</div>
+      <input class="name-input" type="text" id="name-input" placeholder="お名前を入力…" maxlength="20">
+    </div>
+
+    <!-- time slot -->
+    <div class="form-section">
+      <div class="form-label">🕐 希望の時間を選ぶ</div>
+      <div class="time-select-wrap" id="time-slots"></div>
+    </div>
+
+    <!-- people count -->
+    <div class="form-section">
+      <div class="form-label">👥 人数</div>
+      <div class="count-btns" id="count-btns">
+        <div class="count-btn selected" data-count="1" onclick="selectCount(1)">1人<span class="cb-price">¥2,000</span></div>
+        <div class="count-btn" data-count="2" onclick="selectCount(2)">2人<span class="cb-price">¥2,500</span></div>
+        <div class="count-btn" data-count="3" onclick="selectCount(3)">3人<span class="cb-price">¥3,000 ※2枠</span></div>
+        <div class="count-btn" data-count="4" onclick="selectCount(4)">4人<span class="cb-price">¥3,500 ※2枠</span></div>
+        <div class="count-btn" data-count="5" onclick="selectCount(5)">5人<span class="cb-price">¥4,000 ※2枠</span></div>
+      </div>
+      <div id="two-frame-notice" style="display:none;font-size:0.76rem;color:#b86000;background:#fff3e0;border-radius:8px;padding:6px 10px;margin-top:8px;">
+        ⚠️ 3人以上のため、<strong>続けて2枠</strong>を自動で確保します
+      </div>
+    </div>
+
+    <!-- delivery -->
+    <div class="form-section">
+      <div class="form-label">📦 お渡し形式（複数選択可）</div>
+      <div class="delivery-opts" id="delivery-opts">
+        <label class="delivery-row" onclick="toggleDelivery('data')">
+          <input type="checkbox" id="del-data" onchange="calcTotal()">
+          <span class="dr-label">💾 データのみ</span>
+          <span class="dr-price">¥0</span>
+        </label>
+        <label class="delivery-row" onclick="toggleDelivery('l')">
+          <input type="checkbox" id="del-l" onchange="calcTotal()">
+          <span class="dr-label">🖨️ L版プリント</span>
+          <div class="qty-control" id="qty-l-wrap" style="display:none;" onclick="event.stopPropagation()">
+            <button class="qty-btn" onclick="changeQty('l',-1)">−</button>
+            <span class="qty-num" id="qty-l">1</span>
+            <button class="qty-btn" onclick="changeQty('l',1)">＋</button>
+            <span style="font-size:0.7rem;color:#888;">枚</span>
+          </div>
+          <span class="dr-price" id="price-l">¥200/枚</span>
+        </label>
+        <label class="delivery-row" onclick="toggleDelivery('a4')">
+          <input type="checkbox" id="del-a4" onchange="calcTotal()">
+          <span class="dr-label">🖨️ A4プリント</span>
+          <div class="qty-control" id="qty-a4-wrap" style="display:none;" onclick="event.stopPropagation()">
+            <button class="qty-btn" onclick="changeQty('a4',-1)">−</button>
+            <span class="qty-num" id="qty-a4">1</span>
+            <button class="qty-btn" onclick="changeQty('a4',1)">＋</button>
+            <span style="font-size:0.7rem;color:#888;">枚</span>
+          </div>
+          <span class="dr-price" id="price-a4">¥500/枚</span>
+        </label>
+        <label class="delivery-row" onclick="toggleDelivery('sticker')">
+          <input type="checkbox" id="del-sticker" onchange="calcTotal()">
+          <span class="dr-label">🏷️ シール</span>
+          <div class="qty-control" id="qty-sticker-wrap" style="display:none;" onclick="event.stopPropagation()">
+            <button class="qty-btn" onclick="changeQty('sticker',-1)">−</button>
+            <span class="qty-num" id="qty-sticker">1</span>
+            <button class="qty-btn" onclick="changeQty('sticker',1)">＋</button>
+            <span style="font-size:0.7rem;color:#888;">枚</span>
+          </div>
+          <span class="dr-price" id="price-sticker">¥300/枚</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- photo permission -->
+    <div class="form-section">
+      <div class="form-label">📸 撮影・掲載</div>
+      <div class="radio-btns">
+        <div class="radio-btn" id="photo-ok" onclick="selectPhoto('ok')">✅ 可</div>
+        <div class="radio-btn" id="photo-ng" onclick="selectPhoto('ng')">🚫 不可</div>
+      </div>
+    </div>
+
+    <!-- total -->
+    <div class="total-box">
+      <div class="total-label">お会計合計</div>
+      <div class="total-amount" id="total-amount">¥2,000<span>円</span></div>
+    </div>
+
+    <button class="add-btn" onclick="addPerson()">＋ この内容で予約する</button>
+  </div>
+
+  <!-- NOW SERVING -->
+  <div class="now-serving empty" id="now-serving"></div>
+
+  <!-- QUEUE -->
+  <div class="section-title">⏳ 待ち列</div>
+  <div class="queue-list" id="queue-list"></div>
+
+  <!-- DONE -->
+  <div class="section-title">✅ 完成した方</div>
+  <div class="done-list" id="done-list"></div>
+
+  <button class="reset-btn" onclick="resetAll()">🗑 全リセット</button>
+</div>
+
+<script>
+// ===== STATE =====
+let queue=[], done=[], counter=1, serving=null;
+let selectedTime=null, selectedCount=1, selectedPhoto=null;
+let isAdmin=false;
+const PRICE_BASE=[0,2000,2500,3000,3500,4000];
+const DELIVERY_PRICE={l:200,a4:500,sticker:300};
+const qty={l:1,a4:1,sticker:1};
+const START_H=12, END_MINS=15*60+40;
+const STORAGE_KEY='portrait-queue-data';
+let saveTimer=null;
+
+// ===== STORAGE =====
+async function saveState(){
+  const data={queue, done, counter, serving, version:1};
+  try {
+    await window.storage.set(STORAGE_KEY, JSON.stringify(data), true);
+    showSaveIndicator();
+  } catch(e) {
+    console.warn('Save failed:', e);
+  }
+}
+
+async function loadState(){
+  try {
+    const result = await window.storage.get(STORAGE_KEY, true);
+    if(result && result.value){
+      const data = JSON.parse(result.value);
+      queue   = data.queue   || [];
+      done    = data.done    || [];
+      counter = data.counter || 1;
+      serving = data.serving || null;
+    }
+  } catch(e) {
+    // key doesn't exist yet — start fresh
+    console.log('No saved data, starting fresh.');
+  }
+}
+
+function scheduleSave(){
+  if(saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>saveState(), 400);
+}
+
+function showSaveIndicator(){
+  const el = document.getElementById('save-indicator');
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 1800);
+}
+
+// ===== INIT =====
+async function init(){
+  await loadState();
+  document.getElementById('loading-overlay').style.display='none';
+  document.getElementById('name-input').addEventListener('keydown',e=>{if(e.key==='Enter')addPerson();});
+  buildSlots();
+  calcTotal();
+  render();
+}
+init();
+
+// ===== SLOTS =====
+function getInterval(){return parseInt(document.getElementById('interval')?.value)||20;}
+
+function getSlotList(){
+  const iv=getInterval(); const slots=[]; let m=START_H*60;
+  while(m<=END_MINS){slots.push(m);m+=iv;} return slots;
+}
+
+function slotsUsedBy(person){
+  return person.count>=3 ? [person.slotMins, person.slotMins+getInterval()] : [person.slotMins];
+}
+
+function buildSlots(){
+  const slots=getSlotList();
+  const iv=getInterval();
+  const takenSet=new Set();
+  const allPersons=[...(serving?[serving]:[]),...queue,...done];
+  allPersons.forEach(p=>{
+    slotsUsedBy(p).forEach(m=>takenSet.add(m));
+  });
+
+  if(selectedTime!==null && !slots.includes(selectedTime)) selectedTime=null;
+
+  const wrap=document.getElementById('time-slots');
+  if(!wrap) return;
+  const needDouble=selectedCount>=3;
+
+  wrap.innerHTML=slots.map(m=>{
+    const isTaken=takenSet.has(m);
+    const nextM=m+iv;
+    const nextTaken=takenSet.has(nextM);
+    const nextExists=slots.includes(nextM);
+
+    const unavailable=isTaken || (needDouble && (!nextExists || nextTaken));
+    const sel=selectedTime===m;
+
+    let cls='time-slot';
+    if(unavailable && !sel) cls+=' taken';
+    if(sel) cls+=' selected';
+    const click=(!unavailable||sel)?`onclick="selectSlot(${m})"` :'';
+    return `<div class="${cls}" ${click}>${fmtMins(m)}</div>`;
+  }).join('');
+}
+
+function selectSlot(m){
+  selectedTime=(selectedTime===m)?null:m;
+  buildSlots();
+}
+
+// ===== COUNT =====
+function selectCount(n){
+  selectedCount=n;
+  document.querySelectorAll('.count-btn').forEach(b=>{
+    b.classList.toggle('selected',parseInt(b.dataset.count)===n);
+  });
+  const notice=document.getElementById('two-frame-notice');
+  if(notice) notice.style.display=n>=3?'block':'none';
+  if(n>=3 && selectedTime!==null){
+    const iv=getInterval();
+    const slots=getSlotList();
+    const allPersons=[...(serving?[serving]:[]),...queue,...done];
+    const takenSet=new Set();
+    allPersons.forEach(p=>slotsUsedBy(p).forEach(m=>takenSet.add(m)));
+    const nextM=selectedTime+iv;
+    if(!slots.includes(nextM)||takenSet.has(nextM)) selectedTime=null;
+  }
+  buildSlots();
+  calcTotal();
+}
+
+// ===== DELIVERY =====
+function toggleDelivery(type){
+  const cb=document.getElementById('del-'+type);
+  setTimeout(()=>{
+    const wrap=document.getElementById('qty-'+type+'-wrap');
+    if(wrap) wrap.style.display=cb.checked?'flex':'none';
+    const row=cb.closest('.delivery-row');
+    if(row) row.classList.toggle('selected',cb.checked);
+    calcTotal();
+  },0);
+}
+
+function changeQty(type,delta){
+  qty[type]=Math.max(1,Math.min(5,qty[type]+delta));
+  document.getElementById('qty-'+type).textContent=qty[type];
+  const cb=document.getElementById('del-'+type);
+  const p=document.getElementById('price-'+type);
+  if(cb&&cb.checked&&p) p.textContent='¥'+(DELIVERY_PRICE[type]*qty[type]).toLocaleString();
+  calcTotal();
+}
+
+// ===== PHOTO =====
+function selectPhoto(v){
+  selectedPhoto=v;
+  document.getElementById('photo-ok').className='radio-btn'+(v==='ok'?' selected-ok':'');
+  document.getElementById('photo-ng').className='radio-btn'+(v==='ng'?' selected-ng':'');
+}
+
+// ===== TOTAL =====
+function calcTotal(){
+  let total=PRICE_BASE[selectedCount]||2000;
+  ['l','a4','sticker'].forEach(t=>{
+    const cb=document.getElementById('del-'+t);
+    if(cb&&cb.checked) total+=DELIVERY_PRICE[t]*qty[t];
+  });
+  const el=document.getElementById('total-amount');
+  if(el) el.innerHTML='¥'+total.toLocaleString()+'<span>円</span>';
+  return total;
+}
+
+function buildTotalStr(person){
+  let total=PRICE_BASE[person.count]||2000;
+  const parts=[];
+  if(person.delivery.data) parts.push('データ');
+  if(person.delivery.l){total+=DELIVERY_PRICE.l*person.qty.l;parts.push('L版×'+person.qty.l);}
+  if(person.delivery.a4){total+=DELIVERY_PRICE.a4*person.qty.a4;parts.push('A4×'+person.qty.a4);}
+  if(person.delivery.sticker){total+=DELIVERY_PRICE.sticker*person.qty.sticker;parts.push('シール×'+person.qty.sticker);}
+  return {total,deliveryStr:parts.length?parts.join('・'):'なし'};
+}
+
+// ===== ADD =====
+function addPerson(){
+  const name=document.getElementById('name-input').value.trim();
+  if(!name){alert('お名前を入力してください');return;}
+  if(selectedTime===null){alert('時間を選んでください');return;}
+  if(!selectedPhoto){alert('撮影・掲載の可否を選んでください');return;}
+
+  const person={
+    id:counter++, name, slotMins:selectedTime, count:selectedCount,
+    delivery:{
+      data:document.getElementById('del-data').checked,
+      l:document.getElementById('del-l').checked,
+      a4:document.getElementById('del-a4').checked,
+      sticker:document.getElementById('del-sticker').checked,
+    },
+    qty:{l:qty.l,a4:qty.a4,sticker:qty.sticker},
+    photo:selectedPhoto,
+    registeredAt:nowStr()
+  };
+
+  queue.push(person);
+  queue.sort((a,b)=>a.slotMins-b.slotMins);
+
+  // reset form
+  document.getElementById('name-input').value='';
+  selectedTime=null; selectedPhoto=null;
+  selectCount(1);
+  ['data','l','a4','sticker'].forEach(t=>{
+    const cb=document.getElementById('del-'+t);
+    if(cb) cb.checked=false;
+    const w=document.getElementById('qty-'+t+'-wrap');
+    if(w) w.style.display='none';
+    const row=cb?.closest('.delivery-row');
+    if(row) row.classList.remove('selected');
+  });
+  document.getElementById('photo-ok').className='radio-btn';
+  document.getElementById('photo-ng').className='radio-btn';
+
+  buildSlots();
+  calcTotal();
+  render();
+  scheduleSave(); // ← 保存
+}
+
+// ===== NEXT =====
+function callNext(){
+  if(!isAdmin)return;
+  if(serving) done.unshift(serving);
+  serving=queue.shift()||null;
+  buildSlots();
+  render();
+  scheduleSave(); // ← 保存
+}
+
+function deletePerson(id){
+  if(!isAdmin)return;
+  queue=queue.filter(p=>p.id!==id);
+  buildSlots();
+  render();
+  scheduleSave(); // ← 保存
+}
+
+function toggleMode(){
+  isAdmin=!isAdmin;
+  document.body.classList.toggle('admin-mode',isAdmin);
+  document.querySelector('.mode-toggle').textContent=isAdmin?'👤 来場者モードへ':'⚙️ 管理者モード';
+  render();
+}
+
+// ===== HELPERS =====
+function fmtMins(m){
+  return Math.floor(m/60).toString().padStart(2,'0')+':'+( m%60).toString().padStart(2,'0');
+}
+function nowStr(){const d=new Date();return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ===== RENDER =====
+function render(){
+  document.getElementById('stat-waiting').textContent=queue.length;
+  document.getElementById('stat-done').textContent=done.length;
+  document.getElementById('stat-total').textContent=done.length+queue.length+(serving?1:0);
+
+  // now serving
+  const ns=document.getElementById('now-serving');
+  if(serving){
+    const {total,deliveryStr}=buildTotalStr(serving);
+    const slots=serving.count>=3?`${fmtMins(serving.slotMins)}・${fmtMins(serving.slotMins+getInterval())} (2枠)`:fmtMins(serving.slotMins);
+    const adminBtn=isAdmin?`<button class="done-btn" onclick="callNext()">完成 ✓<br>次の方へ</button>`:'';
+    ns.className='now-serving';
+    ns.innerHTML=`
+      <div style="flex:1;">
+        <div class="ns-label">🎨 NOW SERVING</div>
+        <div class="ns-name">${esc(serving.name)}</div>
+        <div class="ns-tags">
+          <span class="ns-tag tag-time">🕐 ${slots}</span>
+          <span class="ns-tag tag-people">👥 ${serving.count}人</span>
+          <span class="ns-tag tag-price">¥${total.toLocaleString()}</span>
+          <span class="ns-tag ${serving.photo==='ok'?'tag-photo-ok':'tag-photo-ng'}">${serving.photo==='ok'?'📸 掲載可':'🚫 掲載不可'}</span>
+        </div>
+      </div>
+      ${adminBtn}`;
+  } else if(queue.length>0&&isAdmin){
+    ns.className='now-serving';
+    ns.innerHTML=`<div><div class="ns-label">🎨 次の方をどうぞ</div><div class="ns-name" style="font-size:1.1rem;color:#7a5500">「開始」を押してください</div></div><button class="done-btn" onclick="callNext()">▶ 開始</button>`;
+  } else if(queue.length>0){
+    const next=queue[0];
+    const {total}=buildTotalStr(next);
+    ns.className='now-serving';
+    ns.innerHTML=`<div><div class="ns-label">🎨 次の方</div><div class="ns-name" style="font-size:1.15rem;">${esc(next.name)} さん</div><div class="ns-tags"><span class="ns-tag tag-time">🕐 ${fmtMins(next.slotMins)}</span><span class="ns-tag tag-people">👥 ${next.count}人</span></div></div>`;
+  } else {
+    ns.className='now-serving empty';
+    ns.innerHTML=`<div><div class="ns-label" style="color:#aaa">🎨 NOW SERVING</div><div class="ns-name" style="font-size:1rem;color:#bbb">待ち中はいません</div></div>`;
+  }
+
+  // queue
+  const ql=document.getElementById('queue-list');
+  if(queue.length===0){ql.innerHTML='<div class="empty-msg">待ち列は空です 🌟</div>';}
+  else{
+    ql.innerHTML=queue.map((p,i)=>{
+      const {total,deliveryStr}=buildTotalStr(p);
+      const slots=p.count>=3?`${fmtMins(p.slotMins)}・${fmtMins(p.slotMins+getInterval())}(2枠)`:fmtMins(p.slotMins);
+      return `<div class="queue-item ${i===0?'is-next':''}">
+        <div class="q-num">${p.id}</div>
+        <div class="q-info">
+          <div class="q-name">${esc(p.name)}</div>
+          <div class="q-tags">
+            <span class="q-tag qt-time">🕐 ${slots}</span>
+            <span class="q-tag qt-people">👥 ${p.count}人</span>
+            <span class="q-tag qt-price">¥${total.toLocaleString()}</span>
+            <span class="q-tag qt-delivery">📦 ${deliveryStr}</span>
+            <span class="q-tag qt-photo">${p.photo==='ok'?'📸 可':'🚫 不可'}</span>
+          </div>
+        </div>
+        ${i===0?'<span class="next-badge">次の方</span>':''}
+        <button class="delete-btn" onclick="deletePerson(${p.id})">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  // done
+  const dl=document.getElementById('done-list');
+  if(done.length===0){dl.innerHTML='<div class="empty-msg">まだいません</div>';}
+  else{
+    dl.innerHTML=done.map(p=>{
+      const {total,deliveryStr}=buildTotalStr(p);
+      return `<div class="done-item">
+        <div class="done-num">${p.id}</div>
+        <div class="done-info">
+          <div class="done-name">${esc(p.name)}（${p.count}人）</div>
+          <div class="done-sub">🕐 ${fmtMins(p.slotMins)} ／ ¥${total.toLocaleString()} ／ ${deliveryStr}</div>
+        </div>
+        <div>🎉</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+async function resetAll(){
+  if(!isAdmin)return;
+  if(!confirm('全データをリセットしますか？'))return;
+  queue=[];done=[];serving=null;counter=1;selectedTime=null;
+  buildSlots();render();
+  await saveState();
+}
+</script>
+</body>
+</html>
